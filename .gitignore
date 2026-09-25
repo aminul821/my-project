@@ -3,3 +3,8 @@ __pycache__/
 *.pyc
 venv/
 node_modules/
+*.session
+*.session-journal
+memory.json
+group_memory.json
+chat_history.json

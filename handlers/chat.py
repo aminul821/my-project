@@ -1,7 +1,7 @@
 from pyrogram import filters
+from pyrogram.enums import ChatAction, ChatType
 from pyrogram.handlers import MessageHandler
 from pyrogram.types import Message
-from pyrogram.enums import ChatAction
 
 import random
 import time
@@ -11,6 +11,8 @@ from config import (
 
     OWNER_ID,
 
+    BOT_USERNAME,
+
     RANDOM_REPLY_CHANCE,
 
     GROUP_REPLY_COOLDOWN
@@ -19,10 +21,12 @@ from config import (
 from core.azia_ai import ask_azia
 
 # =========================
-# GROUP COOLDOWN
+# STATE
 # =========================
 
 GROUP_LAST_REPLY = {}
+
+BOT_ID = None
 
 # =========================
 # RANDOM REPLY
@@ -64,12 +68,14 @@ def should_random_reply(
 # MAIN CHAT
 # =========================
 
-async def group_chat(
+async def azia_chat(
 
     client,
 
     message: Message
 ):
+
+    global BOT_ID
 
     try:
 
@@ -79,17 +85,21 @@ async def group_chat(
 
         ).strip()
 
-        if not text:
+        if not text or text.startswith("/"):
 
             return
 
         user = message.from_user
 
-        if not user:
+        if not user or user.is_bot:
 
             return
 
-        group_id = message.chat.id
+        if BOT_ID is None:
+
+            BOT_ID = (await client.get_me()).id
+
+        chat_id = message.chat.id
 
         user_id = user.id
 
@@ -98,6 +108,11 @@ async def group_chat(
             user.first_name
 
             or "Unknown"
+        )
+
+        is_private = (
+
+            message.chat.type == ChatType.PRIVATE
         )
 
         text_lower = text.lower()
@@ -111,14 +126,14 @@ async def group_chat(
         # MUST REPLY
         # =========================
 
-        must_reply = False
+        must_reply = is_private
 
         # azia name
         if (
 
             "azia" in text_lower
 
-            or "@azia_smartai_bot" in text_lower
+            or f"@{BOT_USERNAME}" in text_lower
         ):
 
             must_reply = True
@@ -127,44 +142,22 @@ async def group_chat(
         # REPLY TO AZIA
         # =========================
 
-        if message.reply_to_message:
+        replied_text = None
 
-            replied = (
+        replied = message.reply_to_message
 
-                message.reply_to_message
-            )
+        if (
 
-            if (
+            replied
 
-                replied.from_user
+            and replied.from_user
 
-                and replied.from_user.is_bot
-            ):
-
-                must_reply = True
-
-                previous = (
-
-                    replied.text or ""
-                )
-
-                text = f"""
-
-Previous Azia Message:
-{previous}
-
-User Reply:
-{text}
-
-"""
-
-        # =========================
-        # OWNER PRIORITY
-        # =========================
-
-        if user_id == OWNER_ID:
+            and replied.from_user.id == BOT_ID
+        ):
 
             must_reply = True
+
+            replied_text = replied.text or None
 
         # =========================
         # RANDOM REPLY
@@ -184,32 +177,32 @@ User Reply:
             return
 
         # =========================
-        # COOLDOWN
+        # COOLDOWN (groups only)
         # =========================
 
-        now = time.time()
+        if not is_private and user_id != OWNER_ID:
 
-        last = GROUP_LAST_REPLY.get(
+            now = time.time()
 
-            group_id,
+            last = GROUP_LAST_REPLY.get(
 
-            0
-        )
+                chat_id,
 
-        if (
+                0
+            )
 
-            now - last
+            if (
 
-            < GROUP_REPLY_COOLDOWN
-        ):
+                now - last
 
-            if user_id != OWNER_ID:
+                < GROUP_REPLY_COOLDOWN
+            ):
 
                 return
 
-        GROUP_LAST_REPLY[
-            group_id
-        ] = now
+            GROUP_LAST_REPLY[
+                chat_id
+            ] = now
 
         print(
 
@@ -222,7 +215,7 @@ User Reply:
 
         await client.send_chat_action(
 
-            group_id,
+            chat_id,
 
             ChatAction.TYPING
         )
@@ -231,28 +224,23 @@ User Reply:
         # AI
         # =========================
 
-        print(
-
-            "[CALLING AZIA AI]"
-        )
-
         reply = await ask_azia(
 
-            group_id,
+            chat_id,
 
             user_id,
 
             username,
 
-            text
+            text,
+
+            replied_text
         )
 
         print(
 
-            "[AZIA REPLY RECEIVED]"
+            f"[AZIA] {reply}"
         )
-
-        print(reply)
 
         if not reply:
 
@@ -304,11 +292,9 @@ def setup_chat(app):
 
         MessageHandler(
 
-            group_chat,
+            start_cmd,
 
-            filters.text
-
-            & filters.group
+            filters.command("start")
         )
     )
 
@@ -316,8 +302,8 @@ def setup_chat(app):
 
         MessageHandler(
 
-            start_cmd,
+            azia_chat,
 
-            filters.command("start")
+            filters.text
         )
     )

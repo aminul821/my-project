@@ -1,137 +1,111 @@
 import os
+
+try:
+    from dotenv import load_dotenv
+
+    load_dotenv()
+except ImportError:
+    pass
+
 # =========================
 # TELEGRAM BOT CONFIG
 # =========================
+# Never hardcode these. Put them in .env (see .env.example).
 
-BOT_TOKEN = "8183141918:AAFzF6WesnG2FrYsUhv9hPO4Uzy9zxJNO8Q"
+BOT_TOKEN = os.getenv("BOT_TOKEN", "")
 
-API_ID = 2530306
-API_HASH = "5ceff6daaeaa909c7d0084d092bff94f"
+API_ID = int(os.getenv("API_ID", "0") or 0)
+
+API_HASH = os.getenv("API_HASH", "")
+
+BOT_USERNAME = os.getenv("BOT_USERNAME", "azia_smartai_bot").lower().lstrip("@")
 
 # =========================
 # OWNER
 # =========================
 
-OWNER_ID = 5041960003
+OWNER_ID = int(os.getenv("OWNER_ID", "5041960003"))
 
-OWNER_NAME = "Aman"
+OWNER_NAME = os.getenv("OWNER_NAME", "Aman")
 
 # =========================
-# HF API KEYS
+# GROQ API KEYS (ROTATION)
 # =========================
+# Any of these work, all found keys are merged and de-duplicated:
+#   GROQ_API_KEYS=key1,key2,key3
+#   GROQ_API_KEY_1=key1  GROQ_API_KEY_2=key2 ...
+#   GROQ_API_KEY=key1
+# Keys must come from DIFFERENT Groq accounts/orgs, otherwise
+# they share one rate limit and rotation does nothing.
 
-#HF_KEYS = [
- #  os.getenv("GROQ_API_KEY"),
-  # os.getenv("GROQ_API_KEY"),
-   # os.getenv("GROQ_API_KEY")
 
-PROVIDERS = [
+def _load_groq_keys():
 
-    {
-        "name": "groq_1",
+    keys = []
 
-        "base_url": "https://api.groq.com/openai/v1",
+    keys += os.getenv("GROQ_API_KEYS", "").split(",")
 
-        "api_key":os.getenv("GROQ_API_KEY") ,
+    i = 1
+    while os.getenv(f"GROQ_API_KEY_{i}"):
+        keys.append(os.getenv(f"GROQ_API_KEY_{i}"))
+        i += 1
 
-        "models": [
+    keys.append(os.getenv("GROQ_API_KEY", ""))
 
-            "llama-3.3-70b-versatile",
+    seen = []
+    for k in keys:
+        k = (k or "").strip()
+        if k and k not in seen:
+            seen.append(k)
 
-            "llama-3.1-8b-instant"
-        ]
-    },
+    return seen
 
-    {
-        "name": "groq_2",
 
-        "base_url": "https://api.groq.com/openai/v1",
+GROQ_API_KEYS = _load_groq_keys()
 
-        "api_key": os.getenv("GROQ_API_KEY"),
+GROQ_BASE_URL = "https://api.groq.com/openai/v1"
 
-        "models": [
+# =========================
+# AI MODELS (PRIORITY ORDER)
+# =========================
+# llama-3.3-70b-versatile and llama-3.1-8b-instant were shut down
+# by Groq on 2026-08-16. Current recommended replacements:
+#   openai/gpt-oss-120b  -> best quality / least hallucination
+#   qwen/qwen3.6-27b     -> strong non-OpenAI fallback
+#   openai/gpt-oss-20b   -> fastest, highest rate limits
+# Override with GROQ_MODELS=model_a,model_b. Models that Groq no
+# longer lists are skipped automatically at runtime.
 
-            "llama-3.3-70b-versatile",
-
-            "llama-3.1-8b-instant"
-        ]
-    },
-
-    {
-        "name": "groq_3",
-
-        "base_url": "https://api.groq.com/openai/v1",
-
-        "api_key":os.getenv("GROQ_API_KEY"),
-
-        "models": [
-
-            "llama-3.3-70b-versatile",
-            "llama-3.1-8b-instant"
-        ]
-    },
-    {
-        "name": "groq_4",
-
-        "base_url": "https://api.groq.com/openai/v1",
-
-        "api_key":os.getenv("GROQ_API_KEY"),
-
-        "models": [
-
-            "llama-3.3-70b-versatile",
-            "llama-3.1-8b-instant"
-        ]
-    },
-    {
-        "name": "groq_5",
-
-        "base_url": "https://api.groq.com/openai/v1",
-
-        "api_key":os.getenv("GROQ_API_KEY"),
-
-        "models": [
-
-            "llama-3.3-70b-versatile",
-            "llama-3.1-8b-instant"
-        ]
-    }
+MODELS = [
+    m.strip()
+    for m in os.getenv(
+        "GROQ_MODELS",
+        "openai/gpt-oss-120b,qwen/qwen3.6-27b,openai/gpt-oss-20b",
+    ).split(",")
+    if m.strip()
 ]
-# =========================
-# HF BASE URL
-# =========================
 
-#BASE_URL = "https://api.groq.com/openai/v1"
+# Low temperature = fewer made-up facts, still casual.
+TEMPERATURE = float(os.getenv("TEMPERATURE", "0.4"))
 
-# =========================
-# AI MODELS
-# =========================
-#========
-# AI SETTINGS
-# =========================
-#MODELS = [
+# Reasoning models spend tokens thinking before answering. If this
+# is too low (the old value was 90) the reply comes back empty.
+MAX_TOKENS = int(os.getenv("MAX_TOKENS", "700"))
 
- ##   "llama-3.1-8b-instant",
-
-   # "llama3-70b-8192"
-#]
-
-TEMPERATURE = 0.35
-
-MAX_TOKENS = 90
+REQUEST_TIMEOUT = 30
 
 # =========================
 # GROUP SETTINGS
 # =========================
 
-# random reply chance
+# random reply chance (percent)
 RANDOM_REPLY_CHANCE = 7
 
-# cooldown between replies
+# cooldown between replies (seconds)
 GROUP_REPLY_COOLDOWN = 15
 
-# context message count
-CONTEXT_LIMIT = 6
+# how many past messages per chat are sent to the model
+CONTEXT_LIMIT = 12
 
 # =========================
 # MEMORY SETTINGS
@@ -142,23 +116,6 @@ MEMORY_FILE = "memory.json"
 GROUP_MEMORY_FILE = "group_memory.json"
 
 CHAT_HISTORY_FILE = "chat_history.json"
-
-# =========================
-# WELCOME MESSAGES
-# =========================
-
-WELCOME_MESSAGES = [
-
-    "Welcome 😭 ab group ki average IQ aur girne wali hai",
-
-    "Aagaye boss 😈 attendance lag gayi",
-
-    "Ek aur insaan internet barbaad karne aagaya 😭",
-
-    "Welcome 😭 yaha logic optional hai",
-
-    "Aaj ka new character enter ho gaya 😭"
-]
 
 # =========================
 # LEAVE MESSAGES

@@ -1,5 +1,6 @@
 pyrogram
 tgcrypto
-openai
+openai>=1.40
+python-dotenv
 requests
 beautifulsoup4

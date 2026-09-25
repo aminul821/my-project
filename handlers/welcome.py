@@ -1,9 +1,8 @@
 from pyrogram import filters
+from pyrogram.handlers import MessageHandler
 from pyrogram.types import Message
 
 import random
-
-from main import app
 
 # =========================
 # WELCOME MESSAGES
@@ -56,8 +55,6 @@ WELCOME_MESSAGES = [
 # MEMBER JOIN
 # =========================
 
-@app.on_message(filters.new_chat_members)
-
 async def welcome_handler(
     client,
     message: Message
@@ -95,3 +92,19 @@ async def welcome_handler(
         )
 
         print(e)
+
+# =========================
+# SETUP
+# =========================
+
+def setup_welcome(app):
+
+    app.add_handler(
+
+        MessageHandler(
+
+            welcome_handler,
+
+            filters.new_chat_members
+        )
+    )
