@@ -1,4 +1,10 @@
-from pyrogram import Client
+import asyncio
+
+# Python 3.14+ no longer auto-creates an event loop, and pyrogram
+# 2.0.x calls asyncio.get_event_loop() at import time. Create one first.
+asyncio.set_event_loop(asyncio.new_event_loop())
+
+from pyrogram import Client  # noqa: E402
 
 from config import (
 
