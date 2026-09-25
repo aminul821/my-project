@@ -1,0 +1,152 @@
+import json
+import os
+
+from config import (
+
+    CHAT_HISTORY_FILE,
+    CONTEXT_LIMIT
+)
+
+# =========================
+# LOAD HISTORY
+# =========================
+
+def load_history():
+
+    if not os.path.exists(
+        CHAT_HISTORY_FILE
+    ):
+
+        return {}
+
+    try:
+
+        with open(
+
+            CHAT_HISTORY_FILE,
+
+            "r",
+
+            encoding="utf-8"
+
+        ) as f:
+
+            return json.load(f)
+
+    except:
+
+        return {}
+
+# =========================
+# BUILD CONTEXT
+# =========================
+
+def build_context(
+
+    group_id,
+    user_id,
+    username,
+    current_message
+):
+
+    history = load_history()
+
+    group_id = str(group_id)
+
+    if group_id not in history:
+
+        return f"""
+
+Current User:
+{username}
+
+Current Message:
+{current_message}
+"""
+
+    messages = history[group_id]
+
+    # =========================
+    # TAKE RECENT ONLY
+    # =========================
+
+    recent = messages[-CONTEXT_LIMIT:]
+
+    # =========================
+    # LIMIT ASSISTANT MSGS
+    # =========================
+
+    assistant_count = 0
+
+    filtered = []
+
+    for msg in reversed(recent):
+
+        role = msg.get("role")
+
+        if role == "assistant":
+
+            if assistant_count >= 1:
+
+                continue
+
+            assistant_count += 1
+
+        filtered.append(msg)
+
+    filtered.reverse()
+
+    # =========================
+    # BUILD TEXT
+    # =========================
+
+    context = []
+
+    for msg in filtered:
+
+        role = msg.get(
+            "role",
+            "user"
+        )
+
+        name = msg.get(
+            "username",
+            "Unknown"
+        )
+
+        content = msg.get(
+            "content",
+            ""
+        )
+
+        if not content:
+
+            continue
+
+        if role == "assistant":
+
+            context.append(
+                f"Azia: {content}"
+            )
+
+        else:
+
+            context.append(
+                f"{name}: {content}"
+            )
+
+    final_context = "\n".join(
+        context
+    )
+
+    return f"""
+
+Recent Conversation:
+{final_context}
+
+Current User:
+{username}
+
+Current Message:
+{current_message}
+"""
