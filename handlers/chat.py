@@ -15,7 +15,9 @@ from config import (
 
     RANDOM_REPLY_CHANCE,
 
-    GROUP_REPLY_COOLDOWN
+    GROUP_REPLY_COOLDOWN,
+
+    CONVO_WINDOW
 )
 
 from core.azia_ai import ask_azia
@@ -25,6 +27,9 @@ from core.azia_ai import ask_azia
 # =========================
 
 GROUP_LAST_REPLY = {}
+
+# (chat_id, user_id) -> last time Azia replied to that user
+ACTIVE_CONVO = {}
 
 BOT_ID = None
 
@@ -160,6 +165,36 @@ async def azia_chat(
             replied_text = replied.text or None
 
         # =========================
+        # OWNER PRIORITY
+        # =========================
+
+        if user_id == OWNER_ID:
+
+            must_reply = True
+
+        # =========================
+        # ONGOING CONVERSATION
+        # =========================
+        # "Kaise ho" right after Azia answered you should
+        # still get a reply without saying "azia" again.
+
+        in_convo = (
+
+            time.time() - ACTIVE_CONVO.get((chat_id, user_id), 0)
+
+            < CONVO_WINDOW
+        )
+
+        # someone else's reply thread -> not talking to Azia
+        if replied and not replied_text:
+
+            in_convo = False
+
+        if in_convo:
+
+            must_reply = True
+
+        # =========================
         # RANDOM REPLY
         # =========================
 
@@ -180,7 +215,16 @@ async def azia_chat(
         # COOLDOWN (groups only)
         # =========================
 
-        if not is_private and user_id != OWNER_ID:
+        if (
+
+            not is_private
+
+            and user_id != OWNER_ID
+
+            and not in_convo
+
+            and not replied_text
+        ):
 
             now = time.time()
 
@@ -256,6 +300,8 @@ async def azia_chat(
 
             quote=True
         )
+
+        ACTIVE_CONVO[(chat_id, user_id)] = time.time()
 
     except Exception:
 

@@ -85,8 +85,8 @@ MODELS = [
     if m.strip()
 ]
 
-# Low temperature = fewer made-up facts, still casual.
-TEMPERATURE = float(os.getenv("TEMPERATURE", "0.4"))
+# 0.6 keeps sarcasm varied; the prompt's truth rules handle facts.
+TEMPERATURE = float(os.getenv("TEMPERATURE", "0.6"))
 
 # Reasoning models spend tokens thinking before answering. If this
 # is too low (the old value was 90) the reply comes back empty.
@@ -103,6 +103,10 @@ RANDOM_REPLY_CHANCE = 7
 
 # cooldown between replies (seconds)
 GROUP_REPLY_COOLDOWN = 15
+
+# after Azia replies to someone, keep replying to that person's
+# follow-ups (without "azia" in them) for this many seconds
+CONVO_WINDOW = 120
 
 # how many past messages per chat are sent to the model
 CONTEXT_LIMIT = 12
