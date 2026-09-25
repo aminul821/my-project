@@ -71,7 +71,7 @@ GROQ_BASE_URL = "https://api.groq.com/openai/v1"
 # llama-3.3-70b-versatile and llama-3.1-8b-instant were shut down
 # by Groq on 2026-08-16. Current recommended replacements:
 #   openai/gpt-oss-120b  -> best quality / least hallucination
-#   qwen/qwen3.6-27b     -> strong non-OpenAI fallback
+#   qwen/qwen3.8-27b     -> strong non-OpenAI fallback
 #   openai/gpt-oss-20b   -> fastest, highest rate limits
 # Override with GROQ_MODELS=model_a,model_b. Models that Groq no
 # longer lists are skipped automatically at runtime.
@@ -80,7 +80,7 @@ MODELS = [
     m.strip()
     for m in os.getenv(
         "GROQ_MODELS",
-        "openai/gpt-oss-120b,qwen/qwen3.6-27b,openai/gpt-oss-20b",
+        "openai/gpt-oss-120b,qwen/qwen3.8-27b,openai/gpt-oss-20b",
     ).split(",")
     if m.strip()
 ]
